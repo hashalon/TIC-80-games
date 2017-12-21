@@ -3,112 +3,266 @@
 -- desc:   2 players rudby game
 -- script: moonscript
 
---HELPERs--
+-- HELPERs --
+util =
+	-- return the sign of the number
+	sign:  (x)   -> x>0 and 1 or x<0 and -1 or 0
+	sign2: (x,d) -> x>d and 1 or x<0 and -d or 0
 
-sign=(x)-> x>0 and 1 or x<0 and -1 or 0
-siga=(x,d)->
-	x>d and 1 or x<-d and -1 or 0
-
-null=(x,d)-> -d<x and x<d
-nadd=(a,b)->
-	return a+b if sign(a)~=sign(b)
-	a
-
-cap=(x,c)->
-	if     x<-c then x=-c
-	elseif x> c then x= c
-	x
-
-dist=(x0,y0,z0,x1,y1,z1)->
-	X,Y,Z = x1-x0 , y1-y0 , z1-z0
-	X*X+Y*Y+Z*Z , X,Y,Z
-
-zOrder=(a,b)-> a.pz>b.pz
-
---search index of element in list
-search=(l,v)->
-	for i=1,#l do return i if l[i]==v
-	nil
+	-- return the uv coordinate for the selected sprite
+	uv: (s, w, h) ->
+		w = w or 1
+		h = h or w
+		u1, v1 = (s %  16) * 8, (s // 16) * 8
+		u2, v2 = w * 8 + u1, h * 8 + v1
+		return u1, v1, u2, v2
 	
---CLASSES--
-
-class Env
-	env: Env 6,300,200
+	-- print a textured rectangle to the screen
+	-- rectangle is defined as:
+	-- (1) 1 --- 2
+	--     |  \  |
+	--     3 --- 4 (2)
+	texrect: (x1, y1, x2, y2, x3, y3, x4, y4, u1, v1, u2, v2, use_map, chroma) ->
+		use_map, chroma = use_map or false, chroma or -1
+		textri(
+			x1, y1, x2, y2, x4, y4, 
+			u1, v1, u2, v1, u2, v2, 
+			use_map, chroma)
+		textri(
+			x1, y1, x3, y3, x4, y4,
+			u1, v1, u1, v2, u2, v2,
+			use_map, chroma)
+		return
 	
-	new:(nb,dw,dh)=>
-		@dw,@dh = dw,dh
-		@ch,@bl = {},nil
-		-- TODO place players
-		for n=0,nb
-			@add Char @dw  /4,100,@dh/2,false
-			@add Char @dw*3/4,100,@dh/2,true
+	-- return squared distance between both positions
+	sqrDist: (u, v) ->
+		X, Y, Z = v.x - u.x, v.y - u.y, v.z - u.z
+		return X*X + Y*Y + Z*Z
 	
-	add:(ch)=> @ch[ch]=true
-	rem:(ch)=> @ch[ch]=nil
+	-- return distance between both positions
+	dist: (u, v) -> math.sqrt util.sqrDist(u, v)
+
+
+-- VECTOR --
+-- vector 3D to do math
+class Vector
+	-- create a new vector
+	new: (x,y,z) => @x, @y, @z = x, y, z
+
+	-- apply to vector
+	add: (v) =>
+		@x += v.x
+		@y += v.y
+		@z += v.z
+		return @
+	sub: (v) =>
+		@x -= v.x
+		@y -= v.y
+		@z -= v.z
+		return @
+	scale: (s) =>
+		@x *= s
+		@y *= s
+		@z *= s
+		return @
+
+	-- basic vector operations
+	__add: (v) => Vector @x + v.x, @y + v.y, @z + v.z
+	__sub: (v) => Vector @x - v.x, @y - v.y, @z - v.z
+	__mul: (c) => Vector @x * c  , @y * c  , @z * c
 	
-	updt:=>
-		@bl=Ball @dw/2,100,@dh/2 if @bl==nil
-		ch\updt! for ch in pairs @ch
+	-- vector operations
+	dot:   (u, v) -> u.x * v.x + u.y * v.y + u.z * v.z
+	cross: (u, v) -> Vector(
+		u.y * v.z - u.z * v.y,
+		u.z * v.x - u.x * v.z,
+		u.x * v.y - u.y * v.x)
 	
-	grnd:(x,z)=> 0
-	bond:(x,z)=>
-		if     z<0   then z=0
-		elseif z>@dh then z=@dh
-		if     x<0   then x=0
-		elseif x>@dw then x=@dw
-		x,z
+	-- return a copy of the vector
+	copy: (v) -> Vector v.x, v.y, v.z
 
+	-- return a new null vector
+	zero:-> Vector(0, 0, 0)
 
-class Char
-	spd: 2
-	jmp: 4
+-- CAMERA --
+-- allow to see the world
+class Camera
+	-- create a new camera with position, rotation and field of view
+	new: (pos, rot, fov) => @pos, @rot, @fov = pos, rot, fov
+
+	-- render the world
+	render: (world) =>
+		entities = {}
+		-- project all entities to camera space
+		for e, _ in pairs world.entities
+			e.proj = @project e.pos
+			table.insert entities, e
+		-- sort the list of object from farest to closest
+		table.sort(entities, (a, b) -> a.proj.z < b.proj.z)
+		-- render each object in order
+		for e in *entities
+			e\render!
+		return
 	
-	new:(x,y,z,tm)=>
-		@px,@py,@pz = x,y,z
-		@vx,@vy,@vz = 0,0,0
-		@tm,@fr = tm,tm
-		@pl = nil
+	-- project from world space to camera space
+	-- https://en.wikipedia.org/wiki/3D_projection
+	project: (worldpos) =>
+		v = worldpos - @pos
+		-- precompute sine and cosine
+		sx, sy, sz = math.sin(@rot.x), math.sin(@rot.y), math.sin(@rot.z)
+		cx, cy, cz = math.cos(@rot.x), math.cos(@rot.y), math.cos(@rot.z)
+		-- precompute parts of formulas
+		q0 = sz * v.y + cz * v.x
+		q1 = cy * v.z + sy * q0
+		q2 = cz * v.y - sz * v.x
+		-- project the vector to camera space
+		return Vector(
+			cy * q0 - sy * v.z,
+			sx * q1 + cx * q2,
+			cx * q1 - sx * q2)
+
+-- PLAYER --
+-- player to manage input and attach to a character
+class Player
+	-- create either a player 1 or a player 2
+	new: (isP1) => @isP1 = isP1
+
+	-- return the inputs of the player
+	input:=>
+		side = if @isP1 then 0 else 8
+		x, z = 0, 0
+		z += 1 if btn side     -- UP
+		z -= 1 if btn side + 1 -- DOWN
+		x -= 1 if btn side + 2 -- LEFT
+		x += 1 if btn side + 3 -- RIGHT
+		-- return DPAD, A, B
+		return x, z, btn(side + 4), btn(side + 5)
+
+-- ENTITY --
+-- entity with position, velocity and sprites
+class Entity
+	-- create a new entity with list of sprites
+	new: (pos, sprites, w, h, chroma) =>
+		-- physics
+		@pos = Vector.copy(pos)
+		@vel = Vector.zero!
+		@acc = Vector.zero!
+		-- rendering
+		@w = w or 1 
+		@h = h or w
+		@chroma = chroma or -1
+		@sprites, @spr_i = {}, 1
+		for s in *sprites
+			u1, v1, u2, v2 = util.uv(s, @w, @h)
+			table.insert @sprites, {u1, v1, u2, v2}
+		@proj = Vector.zero!
+
+	-- apply velocity and acceleration to entity
+	update:=>
+		@pos\add @vel
+		@vel\add @acc
+		return @
 	
-	updt:=>
-		u,v,a,b = @inpt!
-		if @grnd! -- on ground
-			@vx = @vx/2 + u*@@spd
-			@vy = @@jmp if a
-			@vz = @vz/2 + v*@@spd
-		else -- in the air
-			@vx = @cap @vx,u
-			@vz = @cap @vz,v
-		-- apply velocity
-		@px+= @vx
-		@py+= @vy
-		@pz+= @vz
-		@px,@pz = Env.env\grnd @px,@pz
-		
-	grnd:=> @py<=0
-	inpt:=>
-		return @pl\inpt! if @pl~=nil
-		-- TODO
-		return 0,0,false,false
-	@cap:(v,i)-> cap v+i*@@spd*.1,@@spd*2
+	-- print the entity (as a billboard) to the screen
+	render:=>
+		w, h = @w * 0.5 / @proj.z, @h * 0.5 / @proj.z
+		x1, y1 = @pos.x - w, @pos.y - h
+		x2, y2 = @pos.x + w, @pos.y + h
+		uv = @sprites[@spr_i]
+		util.texrect(
+			x1,y1, x2,y1, x1,y2, x2,y2,
+			uv.u1, uv.v1, uv.u2, uv.v2,
+			false, chroma)
+		return
 
+-- WORLD --
+-- contains characters and objects
+class World
+	-- create a world with a list of entities
+	new:=> 
+		@entities = {}
+		@p1 = Player true
+		@p2 = Player false
 
-class Ball
-	new:(x,y,z)=>
-		@px,@py,@pz = x,y,z
-		@vx,@vy,@vz = 0,0,0
-		
-	updt:=>
-		-- apply velocity
-		@px+= @vx
-		@py+= @vy
-		@pz+= @vz
+	-- update our entities
+	update:=>
+		for e, _ in pairs @entities
+			e\update!
+		return
 
+	-- manage entities
+	add:    (e) => @entities[e] = true
+	remove: (e) => @entities[e] = nil
 
-class Play
-	new:(tm)=>
-		
+---- END OF GENERIC CLASSES ----
 
+-- define the properties of the entities of the game
+props =
+	gravity: -10 -- gravity force
+	speed:    10 -- speed of characters
+	jump:     30 -- jump force of the characters
+	ground:    0 -- ground level
+
+-- STADIUM --
+-- rectangular world with boundaries
+class Stadium extends World
+	-- create a new stadium with defined boundaries
+	new: (X, Z) =>
+		super!
+		@X, @Z = X, Z
+		-- we need a camera to see the stadium
+		@camera = Camera Vector(X/2, 30, -10), 0, 90 
+
+	-- update the world
+	update:=>
+		super\update!
+		-- keep the entities within the stadium
+		for e, _ in pairs @entities
+			if     e.x < 0  then e.x = 0
+			elseif e.x > @X then e.x = @X
+			if     e.z < 0  then e.z = 0
+			elseif e.z > @Z then e.z = @Z
+		return
+
+-- CHARACTER --
+-- entity that is controlled by the player or an AI
+class Character extends Entity
+	-- create a character with a player assigned to it
+	new: (world, pos, sprites, w, h, chroma, player) =>
+		super pos, sprites, w, h, chroma
+		@world  = world
+		@player = player
+		@acc.y = props.gravity
+
+	-- update the character
+	update:=>
+		-- get the inputs from the player or the AI
+		xAxis, zAxis, btnA, btnB = if @player then @player\input! else @behavior!
+
+		-- apply movements
+		@vel.x, @vel.z = xAxis * props.speed, zAxis * props.speed
+		@vel.y = props.jump if btnA and @pos.y <= props.ground
+		-- TODO: apply charge with btnB
+
+		-- apply physics
+		super\update!
+
+		-- keep the character on the ground
+		if @pos.y <= props.ground
+			@pos.y = props.ground
+			@vel.y = 0 if @vel.y < 0
+
+	-- AI of the character
+	behavior:=>
+		-- x, z, A, B
+		return 0, 0, false, false
+
+-- MAIN --
 export TIC=->
+	cls!
+	print "WIP"
+
+
 -- <PALETTE>
 -- 000:140c1c44243430346d4e4a4e854c30346524d04648757161597dced27d2c8595a16daa2cd2aa996dc2cadad45edeeed6
 -- </PALETTE>
