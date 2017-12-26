@@ -120,6 +120,12 @@ class Camera
 			cy * q0 - sy * v.z,
 			sx * q1 + cx * q2,
 			cx * q1 - sx * q2)
+	
+	-- correct the shift of the camera
+	fitToScreen: (projected) ->
+		projected.x = projected.x * 20 + 120
+		projected.y = projected.y * 20 +  68
+		return projected
 
 -- PLAYER --
 -- player to manage input and attach to a character
@@ -316,19 +322,50 @@ class Ball extends Entity
 
 -- TEST FIELD --
 
-stadium = Stadium 50, 50
-ball = Ball stadium, Vector(25, 25, 25), {1}, 2, 2, 14
+camera = Camera Vector.zero!, Vector.zero!, 90
+points = {
+	Vector(-1, -1, -1), -- 1 : left  bottom back
+	Vector( 1, -1, -1), -- 2 : right bottom back
+	Vector(-1,  1, -1), -- 3 : left  top    back
+	Vector( 1,  1, -1), -- 4 : right top    back
+	Vector(-1, -1,  1), -- 5 : left  bottom front
+	Vector( 1, -1,  1), -- 6 : right bottom front
+	Vector(-1,  1,  1), -- 7 : left  top    front
+	Vector( 1,  1,  1)  -- 8 : right top    front
+	}
+p = {}
 
 -- MAIN --
 export TIC=->
 	cls!
+	for i, q in pairs points
+		p[i] = camera\project q
+		camera.fitToScreen p[i]
 	util.texrect(
-		0, 10, 100,  0,
-		0, 70, 100, 80,
-		8,  0,  40, 16,
-		false, 14)
+		p[1].x, p[1].y,
+		p[2].x, p[2].y,
+		p[3].x, p[3].y,
+		p[4].x, p[4].y,
+		8, 0, 16+8, 16
+	)
+	util.texrect(
+		p[1].x, p[1].y,
+		p[2].x, p[2].y,
+		p[5].x, p[5].y,
+		p[6].x, p[6].y,
+		8, 0, 16+8, 16
+	)
+	util.texrect(
+		p[1].x, p[1].y,
+		p[3].x, p[3].y,
+		p[5].x, p[5].y,
+		p[7].x, p[7].y,
+		8, 0, 16+8, 16
+	)
+	camera.rot.y += math.pi / 100
+	camera.rot.x += math.pi / 1000
 	--stadium\update!
-	print "WIP"
+	print p[1].x
 
 
 -- <PALETTE>
