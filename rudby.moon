@@ -6,8 +6,8 @@
 -- HELPERs --
 util =
 	-- return the sign of the number
-	sign:  (x)   -> x>0 and 1 or x<0 and -1 or 0
-	sign2: (x,d) -> x>d and 1 or x<0 and -d or 0
+	sign:  (x)   -> x>0 and 1 or x<0  and -1 or 0
+	sign2: (x,d) -> x>d and 1 or x<-d and -1 or 0
 
 	-- return the uv coordinate for the selected sprite
 	uv: (s, w, h) ->
@@ -88,21 +88,7 @@ class Vector
 -- allow to see the world
 class Camera
 	-- create a new camera with position, rotation and field of view
-	new: (pos, rot, fov) => @pos, @rot, @fov = pos, rot, fov
-
-	-- render the world
-	render: (world) =>
-		entities = {}
-		-- project all entities to camera space
-		for e, _ in pairs world.entities
-			e.proj = @project e.pos
-			table.insert entities, e
-		-- sort the list of object from farest to closest
-		table.sort(entities, (a, b) -> a.proj.z < b.proj.z)
-		-- render each object in order
-		for e in *entities
-			e\render!
-		return
+	new: (pos, rot, zoom) => @pos, @rot, @zoom = pos, rot, zoom
 	
 	-- project from world space to camera space
 	-- https://en.wikipedia.org/wiki/3D_projection
@@ -122,10 +108,11 @@ class Camera
 			cx * q1 - sx * q2)
 	
 	-- correct the shift of the camera
-	fitToScreen: (projected, scaling) ->
-		projected.x = projected.x * scaling + 120
-		projected.y = projected.y * scaling +  68
-		return projected
+	fitToScreen: (p) =>
+		p.x = p.x * @zoom + 120
+		p.y = p.y * @zoom +  68
+		--p.z = p.z * @zoom
+		return p
 
 	-- project to plane (crash the program)
 	toPlane: (d, e) ->
@@ -139,18 +126,23 @@ class Camera
 -- player to manage input and attach to a character
 class Player
 	-- create either a player 1 or a player 2
-	new: (isP1) => @isP1 = isP1
+	new: (n) => 
+		@num = n
+		@pad = switch @num
+			when 0 then  0
+			when 1 then  8
+			when 2 then 16
+			when 3 then 24
 
 	-- return the inputs of the player
 	input:=>
-		side = if @isP1 then 0 else 8
 		x, z = 0, 0
-		z += 1 if btn side     -- UP
-		z -= 1 if btn side + 1 -- DOWN
-		x -= 1 if btn side + 2 -- LEFT
-		x += 1 if btn side + 3 -- RIGHT
+		z += 1 if btn @pad     -- UP
+		z -= 1 if btn @pad + 1 -- DOWN
+		x -= 1 if btn @pad + 2 -- LEFT
+		x += 1 if btn @pad + 3 -- RIGHT
 		-- return DPAD, A, B
-		return x, z, btn(side + 4), btn(side + 5)
+		return x, z, btn(@pad + 4), btn(@pad + 5)
 
 -- ENTITY --
 -- entity with position, velocity and sprites
@@ -162,13 +154,14 @@ class Entity
 		@vel = Vector.zero!
 		@acc = Vector.zero!
 		-- rendering
+		@sprites = sprites
 		@w = w or 1 
 		@h = h or w
 		@chroma = chroma or -1
-		@sprites, @spr_i = {}, 1
+		@uvs, @spr_i = {}, 1
 		for s in *sprites
 			u1, v1, u2, v2 = util.uv(s, @w, @h)
-			table.insert @sprites, {u1, v1, u2, v2}
+			table.insert @uvs, {u1, v1, u2, v2}
 		@proj = Vector.zero!
 
 	-- apply velocity and acceleration to entity
@@ -177,12 +170,23 @@ class Entity
 		@vel\add @acc
 		return @
 	
+	-- basic print of the sprite without scaling
+	renderBasic:=>
+		-- we may need to flip the sprite
+		id = @sprites[@spr_i]
+		x = @proj.x - @w * 4
+		y = @proj.y - @h * 4
+		flip = 0
+		spr id, x, y, @chroma, 1, flip, 0, @w, @h
+		return
+
 	-- print the entity (as a billboard) to the screen
 	render:=>
+		if @proj.z == 0 then return
 		w, h = @w * 0.5 / @proj.z, @h * 0.5 / @proj.z
-		x1, y1 = @pos.x - w, @pos.y - h
-		x2, y2 = @pos.x + w, @pos.y + h
-		uv = @sprites[@spr_i]
+		x1, y1 = @proj.x - w, @proj.y - h
+		x2, y2 = @proj.x + w, @proj.y + h
+		uv = @uvs[@spr_i]
 		util.texrect(
 			x1,y1, x2,y1, x1,y2, x2,y2,
 			uv.u1, uv.v1, uv.u2, uv.v2,
@@ -193,10 +197,12 @@ class Entity
 -- contains characters and objects
 class World
 	-- create a world with a list of entities
-	new:=> 
-		@entities = {}
-		@p1 = Player true
-		@p2 = Player false
+	new: (camera, n_players) =>
+		@camera = camera -- camera to view the world
+		@entities = {}   -- entities in the world
+		@players  = {}   -- players that can interact with the world
+		for i = 1, n_players
+			@players[i] = Player i-1
 
 	-- update our entities
 	update:=>
@@ -208,59 +214,73 @@ class World
 	add:    (e) => @entities[e] = true
 	remove: (e) => @entities[e] = nil
 
+	-- render the world using the camera
+	render:=>
+		entities = {}
+		-- project all entities to camera space
+		for e, _ in pairs @entities
+			e.proj = @camera\project     e.pos
+			e.proj = @camera\fitToScreen e.proj
+			table.insert entities, e
+		-- sort the list of object from farest to closest
+		table.sort(entities, (a, b) -> a.proj.z < b.proj.z)
+		-- render each object in order
+		for e in *entities
+			e\renderBasic!
+		return
+
 ---- END OF GENERIC CLASSES ----
 
 -- define the properties of the entities of the game
 props =
-	gravity: -10 -- gravity force
-	speed:    10 -- speed of characters
-	jump:     30 -- jump force of the characters
-	ground:    0 -- ground level
+	gravity: -0.3 -- gravity force
+	speed:    0.3 -- speed of characters
+	jump:     0.9 -- jump force of the characters
+	ground:   0   -- ground level
 
 -- STADIUM --
 -- rectangular world with boundaries
 class Stadium extends World
 	-- create a new stadium with defined boundaries
-	new: (X, Z) =>
-		super!
-		@X, @Z = X, Z
-		-- we need a camera to see the stadium
-		camPos = Vector @X/2, 30, -10
-		camRot = Vector math.pi/4, math.pi, 0
-		@camera = Camera camPos, camRot, 90
+	new: (camera, n_players, width, depth, terrain) =>
+		super camera, n_players
+		@X, @Z = width, depth
+		-- the four corners of our terrain
 		@_points = {
-			@camera\project Vector.zero!
-			@camera\project Vector(@X, 0,  0)
-			@camera\project Vector( 0, 0, @Z)
-			@camera\project Vector(@X, 0, @Z)
+			Vector.zero!,
+			Vector(@X, 0,  0),
+			Vector( 0, 0, @Z),
+			Vector(@X, 0, @Z),
 		}
+		-- the terrain to use to render the stadium
+		@terrain = terrain
 
 	-- update the stadium with the camera
 	update:=>
 		super\update!
 		@render!
-		@camera\render @
 		return
 	
 	-- to render the field, we need four points
 	render:=>
 		-- project the corner of the field
 		p = {}
-		for q in *@_points
-			table.insert p, @camera\project q
+		for point in *@_points
+			q = @camera\project point
+			q = @camera\fitToScreen q
+			table.insert p, q
 		util.texrect(
 			p[1].x, p[1].y, p[2].x, p[2].y,
 			p[3].x, p[3].y, p[4].x, p[4].y,
-			true, -1)
+			0, 0, 240, 136, true, -1)
+		super\render!
 		return
-		
-
 
 -- CHARACTER --
 -- entity that is controlled by the player or an AI
 class Character extends Entity
 	-- create a character with a player assigned to it
-	new: (world, pos, sprites, w, h, chroma, player) =>
+	new: (world, player, pos, sprites, w, h, chroma) =>
 		super pos, sprites, w, h, chroma
 		@world, @player = world, player
 		@world\add @
@@ -324,13 +344,30 @@ class Ball extends Entity
 		-- make the ball bounce on the ground
 		if @pos.y <= props.ground
 			@pos.y = props.ground
-			@vel.y = -@vel.y
+			@vel.y = -@vel.y * .8
 		
 		super\update!
 
 -- TEST FIELD --
 
-camera = Camera Vector.zero!, Vector.zero!, 90
+width, depth = 200, 150
+
+-- create a camera
+camPos = Vector width/2, 30, 50
+camRot = Vector math.pi/4, math.pi/16, 0
+camera = Camera camPos, camRot, 1
+
+-- create a stadium
+stade = Stadium camera, 1, width, depth
+
+-- create an entity
+entPos = Vector width/2, 10, depth/2
+entity = Character stade, stade.players[1], entPos, {1}, 2, 2, 14
+
+balPos = Vector width/2, 100, depth/2
+ball   = Ball stade, balPos, {3}, 2, 2, 14
+
+--camera = Camera Vector.zero!, Vector.zero!, 90
 points = {
 	Vector(-1, -1, -1), -- 1 : left  bottom back
 	Vector( 1, -1, -1), -- 2 : right bottom back
@@ -345,36 +382,37 @@ p = {}
 
 -- MAIN --
 export TIC=->
-	cls!
-	for i, q in pairs points
-		p[i] = camera\project q
-		camera.fitToScreen p[i], 100
+	cls 13
+	stade\update!
+	--for i, q in pairs points
+	--	p[i] = camera\project q
+	--	camera.fitToScreen p[i]
 
-	util.texrect(
-		p[1].x, p[1].y,
-		p[2].x, p[2].y,
-		p[3].x, p[3].y,
-		p[4].x, p[4].y,
-		8, 0, 16+8, 16
-	)
-	util.texrect(
-		p[1].x, p[1].y,
-		p[2].x, p[2].y,
-		p[5].x, p[5].y,
-		p[6].x, p[6].y,
-		8, 0, 16+8, 16
-	)
-	util.texrect(
-		p[1].x, p[1].y,
-		p[3].x, p[3].y,
-		p[5].x, p[5].y,
-		p[7].x, p[7].y,
-		8, 0, 16+8, 16
-	)
-	camera.rot.y += math.pi / 100
-	camera.rot.x += math.pi / 1000
+	--util.texrect(
+	--	p[1].x, p[1].y,
+	--	p[2].x, p[2].y,
+	--	p[3].x, p[3].y,
+	--	p[4].x, p[4].y,
+	--	8, 0, 16+8, 16
+	--)
+	--util.texrect(
+	--	p[1].x, p[1].y,
+	--	p[2].x, p[2].y,
+	--	p[5].x, p[5].y,
+	--	p[6].x, p[6].y,
+	--	8, 0, 16+8, 16
+	--)
+	--util.texrect(
+	--	p[1].x, p[1].y,
+	--	p[3].x, p[3].y,
+	--	p[5].x, p[5].y,
+	--	p[7].x, p[7].y,
+	--	8, 0, 16+8, 16
+	--)
+	camera.rot.y += math.pi / 1000
+	--camera.rot.x += math.pi / 100
 	--stadium\update!
-	print p[1].x
+	--print p[1].x
 
 
 -- <TILES>
