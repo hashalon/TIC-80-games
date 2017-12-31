@@ -122,10 +122,18 @@ class Camera
 			cx * q1 - sx * q2)
 	
 	-- correct the shift of the camera
-	fitToScreen: (projected) ->
-		projected.x = projected.x * 20 + 120
-		projected.y = projected.y * 20 +  68
+	fitToScreen: (projected, scaling) ->
+		projected.x = projected.x * scaling + 120
+		projected.y = projected.y * scaling +  68
 		return projected
+
+	-- project to plane (crash the program)
+	toPlane: (d, e) ->
+		if d.z == 0 then return 0, 0
+		q = e.z / d.z
+		x = q * d.x - e.x
+		y = q * d.y - e.y
+		return x, y
 
 -- PLAYER --
 -- player to manage input and attach to a character
@@ -340,7 +348,8 @@ export TIC=->
 	cls!
 	for i, q in pairs points
 		p[i] = camera\project q
-		camera.fitToScreen p[i]
+		camera.fitToScreen p[i], 100
+
 	util.texrect(
 		p[1].x, p[1].y,
 		p[2].x, p[2].y,
@@ -367,10 +376,6 @@ export TIC=->
 	--stadium\update!
 	print p[1].x
 
-
--- <PALETTE>
--- 000:140c1c44243430346d4e4a4e854c30346524d04648757161597dced27d2c8595a16daa2cd2aa996dc2cadad45edeeed6
--- </PALETTE>
 
 -- <TILES>
 -- 001:efffffffff222222f8888888f8222222f8fffffff8ff0ffff8ff0ffff8ff0fff
@@ -413,4 +418,8 @@ export TIC=->
 -- <SFX>
 -- 000:000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000304000000000
 -- </SFX>
+
+-- <PALETTE>
+-- 000:140c1c44243430346d4e4a4e854c30346524d04648757161597dced27d2c8595a16daa2cd2aa996dc2cadad45edeeed6
+-- </PALETTE>
 
