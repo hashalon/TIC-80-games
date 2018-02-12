@@ -2,6 +2,7 @@
 -- author: game developer
 -- desc:   short description
 -- script: lua
+-- pal: 000000111111222222333333444444555555666666777777888888999999AAAAAABBBBBBCCCCCCDDDDDDEEEEEEFFFFFF
 
 cls()
 
@@ -94,10 +95,11 @@ function draw()
     local width, height = 240, 136
     for x = 0, width  - 1 do
     for y = 0, height - 1 do
-        local val0 = math.floor(noise((x+X)/50, (y+Y)/50) * 8 + 8)
-        local val1 = math.floor(noise((x+X/2)/5 , (y+Y/2)/5 ) * 4 + 4)
-        local val2 = math.floor(noise(x+X/4     , y+Y/4     ) * 2 + 2)
-        pix(x, y, val0 + val1 + val2)
+        local val0 = (noise((x+X  )/50, (y+Y  )/50)+1)*4
+        local val1 = (noise((x+X/2)/ 5, (y+Y/2)/ 5)+1)*2
+        local val2 = (noise( x+X/4    ,  y+Y/4    )+1)
+								
+        pix(x, y, (val0 + val1 + val2)*1.2)
     end end
 end
 draw()
@@ -131,6 +133,6 @@ end
 -- </SFX>
 
 -- <PALETTE>
--- 000:140c1c44243430346d4e4a4e854c30346524d04648757161597dced27d2c8595a16daa2cd2aa996dc2cadad45edeeed6
+-- 000:000000111111222222333333444444555555666666777777888888999999aaaaaabbbbbbccccccddddddeeeeeeffffff
 -- </PALETTE>
 

@@ -6,6 +6,60 @@
 
 --<<< GENERIC >>>--
 
+-- render textured rectangle to screen
+-- rectangle is defined as:
+-- (1) 1 --- 2
+--     |  \  |
+--     3 --- 4 (2)
+texrect = (x1, y1, x2, y2, x3, y3, x4, y4, u1, v1, u2, v2, use_map, chroma) ->
+	use_map, chroma = use_map or false, chroma or -1
+	textri(x1, y1, x2, y2, x4, y4, u1, v1, u2, v1, u2, v2, use_map, chroma)
+	textri(x1, y1, x3, y3, x4, y4, u1, v1, u1, v2, u2, v2, use_map, chroma)
+	return
+
+-- draw a sprite on the screen with the given scale
+-- x, y define the center of the sprite rather than the top left corner
+-- scale is a real number
+-- flip only horizontaly
+-- no rotation
+spr_x = (id, x, y, chroma, scale, flip, w, h) ->
+	chroma = chroma or -1
+	scale  = scale  or  1
+	w, h = w or 1, h or 1
+
+	-- compute offset of x's and y's
+	-- (sprite unit = 8, so half is 4)
+	w_2, h_2 = w * 4 * scale, h * 4 * scale
+	x1, y1 = x - w_2, y - h_2
+	x2, y2 = x + w_2, y + h_2
+
+	-- compute uv position
+	u1, v1 = (id % 16) * 8, (id // 16) * 8
+	u2, v2 =    u1 + w * 8,     v1 + h * 8
+
+	-- crop the sprite
+	u1 += 0.5
+	v1 += 0.5
+	u2 -= 0.5
+	v2 -= 0.5
+
+	if flip -- flip sprite
+		texrect(x1, y1, x2, y1, x1, y2, x2, y2, u2, v1, u1, v2, false, chroma)
+	else -- do not flip sprite
+		texrect(x1, y1, x2, y1, x1, y2, x2, y2, u1, v1, u2, v2, false, chroma)
+	return
+
+-- draw a simple horizontal ellipse
+ellipse = (x, y, a, b, col) ->
+	-- compute helper variables
+	a_2, b_2 = a/2, b/2
+
+	-- iterate over each pixel of the rectangle
+	for i = -a_2, a_2 do for j = -b_2, b_2 do
+		x_, y_ = i / a_2, j / b_2
+		if x_*x_ + y_*y_ <= 1
+			pix x+i, y+j, col
+
 -- UTIL --
 -- define the size of the screen
 SCREEN =
@@ -158,6 +212,10 @@ class Entity
 			spr @shadow, x, y, 15, 1, 0, 0, @w, 1
 		return @
 
+	castShadowS: (x, y, s) =>
+		ellipse x, y, @w*8*s, @h*3*s, 0
+		return @
+
 	-- basic print of the sprite without scaling
 	render: (x, y) =>
 		x -= @w * 4
@@ -167,6 +225,15 @@ class Entity
 		flip = if @flip then 1 else 0
 		spr id, x, y, @chroma, 1, flip, 0, @w, @h
 		return @
+	
+	-- print the sprite with scaling
+	-- (the sprite may not be clean)
+	renderS: (x, y, s) =>
+		id = @sprites[@sprite_index]
+		flip = if @flip then 1 else 0
+		spr_x id, x, y, @chroma, s, flip, @w, @h
+		return @
+
 -- END ENTITY --
 
 -- CHARACTER --
@@ -234,7 +301,7 @@ RUGBY =
 DISPLAY = 
 	-- how much margin are we putting when we display the field
 	tilt:        5   -- how much will the height be visible
-	shadow:     -1.5 -- how far down is the shadow of the entity
+	shadow:     -1.7 -- how far down is the shadow of the entity
 	widthDepth: 60   -- how many pixel the field will occupy on the screen
 	topPad:     20   -- top margin
 	bottomPad:  30   -- bottom margin
@@ -382,7 +449,9 @@ class Stadium extends World
 		t = @ratio.fieldStart + @ratio.field * pos.z / @depth
 		fX = xb * t + xf * (1 - t) -- compute x
 		fY = t * @ratio.fullHeight + y * @ratio.tilt
-		return fX, SCREEN.height - fY
+		-- compute scale of perceived object
+		s = (@stripe.foreground / @stripe.background - 1) * (1 - t) + 1
+		return fX, SCREEN.height - fY, s
 
 	-- render the field using a simple perspective trick
 	render:=>
@@ -403,11 +472,11 @@ class Stadium extends World
 		-- render the entities in the right order
 		entities = @orderEntities!
 		for e in *entities -- draw shadows
-			x, y = @convert e.pos, e.w, DISPLAY.shadow
-			e\castShadow x, y
+			x, y, s = @convert e.pos, e.w, DISPLAY.shadow
+			e\castShadowS x, y, s
 		for e in *entities -- draw entities
-			x, y = @convert e.pos, e.w
-			e\render x, y
+			x, y, s = @convert e.pos, e.w
+			e\renderS x, y, s
 		return
 -- END STADIUM --
 
