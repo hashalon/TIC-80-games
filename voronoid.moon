@@ -21,12 +21,22 @@ CHEBYSHEV = (x1,y1,x2,y2)->
 	dy = math.abs(y1-y2)
 	return math.max(dx,dy)
 
+SQRT_2 = math.sqrt(2)
+DIAGONAL = (x1,y1,x2,y2)->
+	dx  = math.abs(x1-x2)
+	dy  = math.abs(y1-y2)
+	min = math.min(dx,dy)
+	max = math.max(dx,dy)
+	ds  = min
+	ss  = max - min
+	return SQRT_2 * ds + ss
+
 MIX = (x1,y1,x2,y2)->
 	a = CHEBYSHEV(x1,y1,x2,y2)
 	b = MANHATTAN(x1,y1,x2,y2)
 	return a + b*2
 
-DISTANCE = MIX
+DISTANCE = MANHATTAN
 
 WIDTH  = 240
 HEIGHT = 136
