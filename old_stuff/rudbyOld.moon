@@ -78,8 +78,13 @@ class Vector
 		u.z * v.x - u.x * v.z,
 		u.x * v.y - u.y * v.x)
 	
-	-- return a copy of the vector
-	copy: (v) -> Vector v.x, v.y, v.z
+	-- return a clone of the vector
+	clone: (v) -> Vector v.x, v.y, v.z
+
+	copy: (v) =>
+		@x = v.x
+		@y = v.y
+		@z = v.z
 
 	-- return a new null vector
 	zero:-> Vector(0, 0, 0)
@@ -309,6 +314,8 @@ class Character extends Entity
 		if @pos.y <= props.ground
 			@pos.y = props.ground
 			@vel.y = 0 if @vel.y < 0
+		
+
 
 	-- AI of the character
 	behavior:=>
@@ -323,30 +330,41 @@ class Ball extends Entity
 		super pos, sprites, w, h, chroma
 		@world = world
 		@world\add @
+		@character = nil -- the character holding the ball
 		@acc.y = props.gravity
 
 	-- update the ball
 	update:=>
-		-- make the ball bounce against the walls
-		if @pos.x < 0
-			@pos.x = 0
-			@vel.x = -@vel.x
-		elseif @pos.x > @world.X
-			@pos.x = @world.X
-			@vel.x = -@vel.x
-		if @pos.z < 0
-			@pos.z = 0
-			@vel.z = -@vel.z
-		elseif @pos.z > @world.Z
-			@pos.z = @world.Z
-			@vel.z = -@vel.z
+		-- do not update if the ball is hold by a character
+		if @character != nil
+			@pos\copy @character.pos
+		-- update the position of the ball only
+		else
+			-- make the ball bounce against the walls
+			if @pos.x < 0
+				@pos.x = 0
+				@vel.x = -@vel.x
+			elseif @pos.x > @world.X
+				@pos.x = @world.X
+				@vel.x = -@vel.x
+			if @pos.z < 0
+				@pos.z = 0
+				@vel.z = -@vel.z
+			elseif @pos.z > @world.Z
+				@pos.z = @world.Z
+				@vel.z = -@vel.z
 
-		-- make the ball bounce on the ground
-		if @pos.y <= props.ground
-			@pos.y = props.ground
-			@vel.y = -@vel.y * .8
-		
-		super\update!
+			-- make the ball bounce on the ground
+			if @pos.y <= props.ground
+				@pos.y = props.ground
+				@vel.y = -@vel.y * .8
+			
+			super\update!
+
+	-- if the ball is dropped, set velocity
+	dropped:=>
+		@vel\copy @character.vel
+		@character = nil
 
 -- TEST FIELD --
 
@@ -416,15 +434,15 @@ export TIC=->
 
 
 -- <TILES>
--- 001:efffffffff222222f8888888f8222222f8fffffff8ff0ffff8ff0ffff8ff0fff
--- 002:fffffeee2222ffee88880fee22280feefff80fff0ff80f0f0ff80f0f0ff80f0f
--- 003:efffffffff222222f8888888f8222222f8fffffff8fffffff8ff0ffff8ff0fff
--- 004:fffffeee2222ffee88880fee22280feefff80ffffff80f0f0ff80f0f0ff80f0f
--- 016:b5555bbb5555bbbb5555bbbbb5555bbbb5555bbb5555bbbb5555bbbbb5555bbb
--- 017:f8fffffff8888888f888f888f8888ffff8888888f2222222ff000fffefffffef
--- 018:fff800ff88880ffef8880fee88880fee88880fee2222ffee000ffeeeffffeeee
--- 019:f8fffffff8888888f888f888f8888ffff8888888f2222222ff000fffefffffef
--- 020:fff800ff88880ffef8880fee88880fee88880fee2222ffee000ffeeeffffeeee
+-- 001:00ffff000ffffff0ffffffffffffffffffffffffaffffffa0affffa000aaaa00
+-- 002:0000066600006666000066660000666600000666000000000006666600666666
+-- 003:6660000066660000666600006666000066600000000000006666600066666600
+-- 018:0666666606666666066666660066666600066666000000000000666600000666
+-- 019:6666666066666660666666606666660066666000000000006666000066600000
+-- 034:0000088800008888000088880000888800000888000000000008888800888888
+-- 035:8880000088880000888800008888000088800000000000008888800088888800
+-- 050:0888888808888888088888880088888800088888000000000000888800000888
+-- 051:8888888088888880888888808888880088888000000000008888000088800000
 -- </TILES>
 
 -- <MAP>

@@ -1,0 +1,11 @@
+Make a FEZ-like game.
+
+Use large blocks rather than voxels to optimize computation.
+Render using simple projection. (no 3D engine necessary)
+
+Make the game compatible with PICO-8, TIC-80 and löve2d
+
+needs wrapper to call necessary functions:
+- map generation
+- drawing
+- user inputs
