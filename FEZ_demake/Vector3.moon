@@ -54,12 +54,12 @@ class Vector3
     -- STATIC FUNCTIONS
 
     -- return a vector with minimal value from both vectors
-    @min:(a,b)=> Vector3(
+    @min:(a,b)=> @@(
         math.min(a.x, b.x),
         math.min(a.y, b.y),
         math.min(a.z, b.z))
 
-    @max:(a,b)=> Vector3(
+    @max:(a,b)=> @@(
         math.max(a.x, b.x),
         math.max(a.y, b.y),
         math.max(a.z, b.z))
