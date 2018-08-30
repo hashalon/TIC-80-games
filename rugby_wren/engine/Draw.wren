@@ -54,14 +54,12 @@ class Draw {
 
 		y1 = y1.floor
 		y2 = y2.ceil
-		//TIC.trace("%(y1), %(y2)")
 
 		for (i in y1..y2) {
 			// solve ellipse-line intersection equation
 			var dist = i - y
 			var q = (((1 - dist * dist / b2) * a2).sqrt).ceil
 			TIC.rect(x - q, i, q * 2, 1, color)
-			//TIC.trace("%(x - q), %(y + i)")
 		}
 	}
 

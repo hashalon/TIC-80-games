@@ -3,17 +3,12 @@
 */
 class Ball is Entity {
 	
-	mass {_mass}
 	drag {_drag}
 
 	/* CONSTRUCTORs */
 	construct new (position, mass, drag) {
-		super(position, __sprite, __shadow)
-
-		_mass = mass
+		super(position, mass, __sprite, __shadow)
 		_drag = drag
-
-		acceleration = Vector.new(0, -_mass, 0)
 	}
 
 	/* METHODs */
@@ -26,8 +21,6 @@ class Ball is Entity {
 			velocity.y = -velocity.y * _drag
 		}
 	}
-
-	impulse (force) { velocity.copy(force) }
 
 	// generate a sprite that can be used for all balls
 	static Init () {

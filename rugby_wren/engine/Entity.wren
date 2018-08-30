@@ -8,6 +8,9 @@ class Entity {
 	velocity     {_velocity}
 	acceleration {_acceleration}
 
+	mass {_mass}
+	size {_size}
+
 	// allow access to child classes
 	sprite {_sprite}
 	shadow {_shadow}
@@ -22,11 +25,15 @@ class Entity {
 	acceleration=(a) {_acceleration.copy(a)}
 
 	/* CONSTRUCTORs */
-	construct new (position, sprite, shadow) {
+	construct new (position, mass, size, sprite, shadow) {
 
 		_position     = position.clone()
 		_velocity     = Vector.zero()
 		_acceleration = Vector.zero()
+
+		_mass = mass
+		_size = size
+		_acceleration.y = -_mass
 
 		// draw the entity
 		_sprite = sprite
@@ -40,6 +47,12 @@ class Entity {
 		return this
 	}
 
+	// true if the two entity are in contact
+	contact (entity) {
+		var r = _size / 2 + entity.size / 2
+		var d2 = (_position - entity.position).sqrMagnitude
+		return d2 < r*r
+	}
 
 
 	// given transformation, draw shadow

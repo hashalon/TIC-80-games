@@ -12,6 +12,7 @@ build:
 	"engine\\Player.wren"+\
 	"game\\Stadium.wren"+\
 	"game\\Ball.wren"+\
-	"game\\RugbyMan.wren"+\
+	"game\\Sportman.wren"+\
+	"game\\AI.wren"+\
 	"game\\Game.wren"+\
 	"wrapper\\end.wren" "build.wren"

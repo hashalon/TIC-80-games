@@ -1,11 +1,10 @@
 /*
-	RugbyMan that can be controlled by a player or an AI
+	Sportman that can be controlled by a player or an AI
 */
-class RugbyMan is Entity {
+class Sportman is Entity {
 	
 	/* GETTERs */
 	team   {_team  }
-	mass   {_mass  }
 	speed  {_speed }
 	jump   {_jump  }
 	player {_player}
@@ -14,18 +13,15 @@ class RugbyMan is Entity {
 	player =(p) {_player = p}
 
 	/* CONSTRUCTORs */
-	construct new (position, team, mass, speed, jump) {
+	construct new (position, mass, size, team, speed, jump) {
 		var sprite = team ? __spriteA : __spriteB
 		var shadow = team ? __shadowA : __shadowB
-		super(position, sprite, shadow)
+		super(position, mass, size, sprite, shadow)
 
 		_team   = team
-		_mass   = mass
 		_speed  = speed
 		_jump   = jump
 		_player = null
-
-		acceleration = Vector.new(0, -_mass, 0)
 	}
 
 	/* METHODs */

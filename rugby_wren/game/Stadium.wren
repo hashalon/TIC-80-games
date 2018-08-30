@@ -7,10 +7,14 @@ class Stadium is World {
 	static green1  {5}
 	static green2 {11}
 
+	static camSpeed {10}
+
 	/* GETTERs */
 	width  {_width }
 	depth  {_depth }
 	stripe {_stripe}
+
+	ball {_ball}
 
 	/* SETTERs */
 	width  =(w) {_width  = w}
@@ -23,6 +27,25 @@ class Stadium is World {
 		_width  = width
 		_depth  = depth
 		_stripe = stripe
+
+		_ball = null
+	}
+
+	// make the camera follow the ball
+	update () {
+		super.update()
+
+		if (_ball != null && !camera.inField(_ball.position.x)) {
+			var vel = _ball.velocity.x
+			if      (vel < -Stadium.camSpeed) {vel = -Stadium.camSpeed}
+			else if (vel >  Stadium.camSpeed) {vel =  Stadium.camSpeed}
+			camera.position.x = camera.position.x + vel / Draw.FPS
+		}
+	}
+
+	add (entity) {
+		if (entity is Ball) {_ball = entity}
+		super.add(entity)
 	}
 
 	// draw the stadium then the objects in it

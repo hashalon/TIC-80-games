@@ -87,26 +87,5 @@ class Camera {
 	// return true if the position could be seen by the camera
 	inField (x) {-_field <= x && x <= _field}
 
-	/* return the coords to draw the point on screen
-	transform (point) {
-		// vector from camera to point
-		var vec = point - _position
-
-		// if the point is behind the camera, give up
-		if (vec.z <= 0) return null
-
-		// the closer the camera is, the bigger the object will be
-		var s = _scale + _fov / vec.z
-
-		// find vertical position given the tilt
-		// https://en.wikipedia.org/wiki/Vector_projection
-		var y = vec.y * _tilt.sin + vec.z * _tilt.cos
-
-		// build transformed point
-		var w = Draw.width  / 2
-		var h = Draw.height / 2
-		return Vector.new(w + (vec.x * s), h - (y * s), scale * s)
-	} */
-
 }
 
