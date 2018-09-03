@@ -1,5 +1,8 @@
 # ignore all .tic files except .moon, .lua and .js
 
-.local/
-*.tic
+.local/**
+trash/**
+demo/**
+dev/**
+
 
